@@ -72,21 +72,21 @@ In the directory cd dpdk-24.03/build, run testpmd as follows:
 
 Here is what the terminal should look like:
 
-![testpmd](testpmd1.png)
+![testpmd](Pics/testpmd1.png)
 
 then with show port stats all you can see the port stats
-![showport](showport.png)
+![showport](Pics/showport.png)
 
 
 ## 4. Create Additional RX/TX Queues
 tIn the next step, to add a new queue in TAP mode, we need to perform the following actions in testpmd: 
 first, stop all ports, then create new RX and TX queues using the code below, and finally start the ports again.
 
-![new-rx-tx](new-rx-tx.png)
+![new-rx-tx](Pics/new-rx-tx.png)
 
 then, after creating the second RX and TX queues, we can observe the results.
 
-![showallport](showallport.png)
+![showallport](Pics/showallport.png)
 
 ## 5. Create Flow Filtering Rule in testpmd
 
@@ -153,7 +153,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ---
 
-![Event-Density0](Event-Density0.png)
+![Event-Density0](Pics/Event-Density0.png)
 
 ## 1   What the trace indicates
 
@@ -168,7 +168,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ---
 
-![Statistics2](Statistics2.png)
+![Statistics2](Pics/Statistics2.png)
 
 ## 2   Location of the hot-path code in **DPDK 25.03**
 
@@ -185,7 +185,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ---
 
-![PMD_RX_Burst](PMD_RX_Burst.png)
+![PMD_RX_Burst](Pics/PMD_RX_Burst.png)
 
 ## 3   Reasons for the high cost of the rule
 
@@ -197,12 +197,12 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ---
 
-![Flame-Graph02](Flame-Graph02.png)
+![Flame-Graph02](Pics/Flame-Graph02.png)
 
 
 ## 4   Bottleneck ranking
 
-![Flame-Graph01](Flame-Graph01.png)
+![Flame-Graph01](Pics/Flame-Graph01.png)
 
 
 | Rank | Dominant cost                                 | Trace symptom                             | Source location                     |
@@ -279,11 +279,11 @@ First, we dropped UDP packets, then both TCP and UDP packets.
 We noticed that regardless of the flow rule, the `burst_forward` function is always called.  
 This is expected since the driver operates in poll mode — the CPU is always active, and the specified core maintains 100% utilization.
 
-![](Screenshot%20from%202025-06-03%2007-20-33-1.png)
+![](Pics/Screenshot%20from%202025-06-03%2007-20-33-1.png)
 
 If there is data to transmit, the call stack changes to:
 
-![](Screenshot%20from%202025-06-03%2007-21-53-1.png)
+![](Pics/Screenshot%20from%202025-06-03%2007-21-53-1.png)
 
 When analyzing the function calls, we observed no functions specifically dedicated to filtering or dropping.  
 This seems odd, so let’s dig deeper.
@@ -294,11 +294,11 @@ Let’s inspect the DPDK source code.
 In [`tap_flow.c`](https://github.com/DPDK/dpdk/blob/main/drivers/net/tap/tap_flow.c) (line 1065), if the flow action is set to drop, it modifies the data so the kernel drops the packet.  
 Therefore, no user-space function is invoked, and `LTTng` cannot trace it.
 
-![](Screenshot%20from%202025-06-03%2007-26-55-1.png)
+![](Pics/Screenshot%20from%202025-06-03%2007-26-55-1.png)
 
 The same applies to queue redirection for specific packet types:
 
-![](Screenshot%20from%202025-06-03%2007-28-00-1.png)
+![](Pics/Screenshot%20from%202025-06-03%2007-28-00-1.png)
 
 It simply edits the socket buffer (SKB), with no additional function call.
 
