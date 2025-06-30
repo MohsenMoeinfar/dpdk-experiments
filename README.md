@@ -52,6 +52,8 @@ mkdir /mnt/huge
 mount -t hugetlbfs pagesize=1GB /mnt/huge
 ```
 
+<br>
+
 ## 3. Create two TAP interfaces for DPDK's TAP Poll Mode Driver (PMD)
 
 In the directory cd dpdk-<version>/build, run testpmd as follows:
@@ -69,6 +71,8 @@ In the directory cd dpdk-<version>/build, run testpmd as follows:
 
 > LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so forces the DPDK application to load LTTng's function tracing library first, enabling detailed profiling of function calls for performance analysis. This allows tracking exact timing and frequency of every function call in DPDK (like packet processing functions) to identify bottlenecks.
 
+<br>
+
 Here is what the terminal should look like:
 
 ![testpmd](Pics/testpmd1.png)
@@ -76,6 +80,7 @@ Here is what the terminal should look like:
 then with show port stats all you can see the port stats
 ![showport](Pics/showport.png)
 
+<br>
 
 ## 4. Create Additional RX/TX Queues
 tIn the next step, to add a new queue in TAP mode, we need to perform the following actions in testpmd: 
@@ -87,12 +92,16 @@ then, after creating the second RX and TX queues, we can observe the results.
 
 ![showallport](Pics/showallport.png)
 
+<br>
+
 ## 5. Create Flow Filtering Rule in testpmd
 
 ```shell
 flow create 0 ingress pattern eth / ipv4 / udp / end actions queue index 0 / end
 ```
 note:This command installs a flow rule on port 0 that matches Ethernet + IPv4 + UDP packets and sends them to queue 0.
+
+<br>
 
 ## 6. Install and Run tcpreplay
 Then, we should clone tcpreplay from the https://github.com/appneta/tcpreplay/releases/tag/v4.5.1 to use it in our project.
@@ -107,13 +116,10 @@ after that we  can run pcapfile that before create it by below command
 ```shell
 tcpreplay -i tap0 --loop=1000 ./real_traffic.pcap 
 ```
-
-
+<br>
 
 ### 7. Setting Up an LTTng Trace Session
   In order to Automate the LTTng capture, create a shell script to configure the LTTng session. The script initializes the session, adds the necessary context fields, starts tracing, sleeps for a specified duration, and then stops and destroys the session.
-
-
 
 
   ```shell
@@ -137,9 +143,7 @@ sleep 2
 lttng stop
 lttng destroy
 ```
-
-
-
+<br>
 
 # 1  Tracing Analysis - UDP Filtering
 
@@ -154,6 +158,8 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 ---
 
 ![Event-Density0](Pics/Event-Density0.png)
+
+<br>
 
 ## 1   What the trace indicates
 
@@ -170,6 +176,8 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ![Statistics2](Pics/Statistics2.png)
 
+<br>
+ 
 ## 2   Location of the hot-path code in **DPDK 25.03**
 
 | File                                | Function                                                          | Role in the hot path                                                  |
@@ -187,6 +195,8 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ![PMD_RX_Burst](Pics/PMD_RX_Burst.png)
 
+<br>
+ 
 ## 3   Reasons for the high cost of the rule
 
 1. **TAP is a purely software device**; no hardware RSS or flow-director off-load is available.  
@@ -199,6 +209,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ![Flame-Graph02](Pics/Flame-Graph02.png)
 
+<br>
 
 ## 4   Bottleneck ranking
 
@@ -215,6 +226,8 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ---
 
+<br>
+ 
 ## 5   Practical mitigation options
 
 | Mitigation                            | Applicable context     | Implementation                                              |
@@ -229,6 +242,8 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 ---
 
+<br>
+ 
 ## 6   Hotspot file references
 
 ```text
@@ -242,6 +257,8 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 
 ---
 
+<br>
+ 
 # 2  Detailed observations for each TraceCompass component
 
 | TraceCompass view              | Observation                                                                        | Analytical implication                                                              |
@@ -256,6 +273,8 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 
 ---
 
+<br>
+ 
 # 3 Adding PMU contexts
 
 | PMU counter      | Projected change with the flow rule active | Explanation                                                                                                    |
@@ -272,6 +291,8 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 
 <br>
 
+<br>
+ 
 ## Test Scenario: Two Queues, Dropping TCP, UDP, or Both Packet Types
 
 In this test, we examine the effect of dropping specific types of packets.  
@@ -303,7 +324,9 @@ The same applies to queue redirection for specific packet types:
 
 It simply edits the socket buffer (SKB), with no additional function call.
 
-### Conclusion
+<br>
+ 
+## Conclusion
 
 Tracing the actual filtering logic via function calls is not possible with this setup.  
 However, we can still analyze low-level performance metrics such as cache misses or CPU cycles for further insights.
