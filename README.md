@@ -118,7 +118,7 @@ tcpreplay -i tap0 --loop=1000 ./real_traffic.pcap
 ```
 <br>
 
-### 7. Setting Up an LTTng Trace Session
+## 7. Setting Up an LTTng Trace Session
   In order to Automate the LTTng capture, create a shell script to configure the LTTng session. The script initializes the session, adds the necessary context fields, starts tracing, sleeps for a specified duration, and then stops and destroys the session.
 
 
@@ -161,7 +161,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 <br>
 
-## 1   What the trace indicates
+## 1. What the trace indicates
 
 | Metric                  | Dominant functions                                                                                                                                                 | Evidence within TraceCompass                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
@@ -178,7 +178,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 <br>
  
-## 2   Location of the hot-path code in **DPDK 25.03**
+## 2. Location of the hot-path code in **DPDK 25.03**
 
 | File                                | Function                                                          | Role in the hot path                                                  |
 | ----------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -197,7 +197,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 <br>
  
-## 3   Reasons for the high cost of the rule
+## 3. Reasons for the high cost of the rule
 
 1. **TAP is a purely software device**; no hardware RSS or flow-director off-load is available.  
 2. **`rte_flow` therefore falls back to software steering**; `tap_trigger_cb()` is invoked for every received frame.  
@@ -211,7 +211,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 <br>
 
-## 4   Bottleneck ranking
+## 4. Bottleneck ranking
 
 ![Flame-Graph01](Pics/Flame-Graph01.png)
 
@@ -228,7 +228,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 <br>
  
-## 5   Practical mitigation options
+## 5. Practical mitigation options
 
 | Mitigation                            | Applicable context     | Implementation                                              |
 | ------------------------------------- | ---------------------- | ----------------------------------------------------------- |
@@ -244,7 +244,7 @@ Because the rule requires classification of every frame’s L3/L4 headers to dec
 
 <br>
  
-## 6   Hotspot file references
+## 6. Hotspot file references
 
 ```text
 lib/net/rte_net.c             : rte_net_get_ptype()        (≈ 560-850)
@@ -259,7 +259,7 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 
 <br>
  
-# 2  Detailed observations for each TraceCompass component
+# Detailed observations for each TraceCompass component
 
 | TraceCompass view              | Observation                                                                        | Analytical implication                                                              |
 | ------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -275,7 +275,7 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 
 <br>
  
-# 3 Adding PMU contexts
+# Adding PMU contexts
 
 | PMU counter      | Projected change with the flow rule active | Explanation                                                                                                    |
 | ---------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
