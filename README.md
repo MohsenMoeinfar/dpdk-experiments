@@ -117,16 +117,17 @@ tcpreplay -i tap0 --loop=1000 ./real_traffic.pcap
 
 
 
-        ```shell
-        touch script.sh
-        chmod +x script.sh
-        nano script.sh
-        ```
-      Paste the following commands into the file:
+  ```shell
+  touch script.sh
+  chmod +x script.sh
+  nano script.sh
+  ```
+  Paste the following commands into the file:
       
  
-#!/bin/bash
+
    ```shell
+#!/bin/bash
 lttng create libpcap
 lttng enable-channel --userspace --num-subbuf=4 --subbuf-size=40M channel0
 #lttng enable-channel --userspace channel0
