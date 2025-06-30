@@ -3,7 +3,7 @@
 
 This project is designed to analyze network performance using DPDK (testpmd), virtual TAP interfaces, and the tcpreplay tool. Below is the structured workflow for implementation and analysis:
 
-## 1.Installing and Building DPDK from Source with Function Tracing Support
+## 1. Installing and Building DPDK from Source with Function Tracing Support
 1. **Download the Latest DPDK Version**
   
     Retrieve the latest release from the [official DPDK website](https://core.dpdk.org/download/)
@@ -43,7 +43,8 @@ This project is designed to analyze network performance using DPDK (testpmd), vi
   The compiled binaries will be located in the /build/app directory.
 
   <br>
-  ## 2.configure hugepage and mount 1GB pagesize
+
+## 2. Configure hugepage and mount 1GB pagesize
 
 ```shell
 echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
@@ -51,24 +52,22 @@ mkdir /mnt/huge
 mount -t hugetlbfs pagesize=1GB /mnt/huge
 ```
 
-## 3.create two TAP interfaces for DPDK's TAP Poll Mode Driver (PMD)
+## 3. Create two TAP interfaces for DPDK's TAP Poll Mode Driver (PMD)
 
-In the directory cd dpdk-24.03/build, run testpmd as follows:
+In the directory cd dpdk-<version>/build, run testpmd as follows:
 
 ```shell
  sudo LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so ./app/dpdk-testpmd -l 0-1 --proc-type=primary --file-prefix=pmd1 --vdev=net_memif,role=server -- -i
  ```
  What this does:
 
-1-Creates net_tap0 and net_tap1 virtual devices
+1- Creates net_tap0 and net_tap1 virtual devices
 
- 2-Assigns 2 CPU cores (-l 0-1)
+2- Assigns 2 CPU cores (-l 0-1)
 
-3- Configures 2 TX/RX queues per port
+3- Starts in interactive mode (-i)
 
-4-Starts in interactive mode (-i)
-
-***LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so forces the DPDK application to load LTTng's function tracing library first, enabling detailed profiling of function calls for performance analysis. This allows tracking exact timing and frequency of every function call in DPDK (like packet processing functions) to identify bottlenecks.
+> LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so forces the DPDK application to load LTTng's function tracing library first, enabling detailed profiling of function calls for performance analysis. This allows tracking exact timing and frequency of every function call in DPDK (like packet processing functions) to identify bottlenecks.
 
 Here is what the terminal should look like:
 
@@ -126,7 +125,7 @@ tcpreplay -i tap0 --loop=1000 ./real_traffic.pcap
       
  
 
-   ```shell
+```shell
 #!/bin/bash
 lttng create libpcap
 lttng enable-channel --userspace --num-subbuf=4 --subbuf-size=40M channel0
@@ -137,7 +136,7 @@ lttng start
 sleep 2
 lttng stop
 lttng destroy
- ```
+```
 
 
 
@@ -262,7 +261,7 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 | PMU counter      | Projected change with the flow rule active | Explanation                                                                                                    |
 | ---------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | **cpu-cycles**   | Increase by ~10 – 15 %                     | Additional helper instructions execute per frame.                                                              |
-| **instructions** | Increase by ~12 – 18 %                     | Header checks add 100 – 150 instructions per packet.                                                           |
+| **instructions** | Increase by ~3 – 5 %                       | Header checks add 50 – 100 instructions per packet.                                                           |
 | **cache-misses** | Noticeable rise on the Rx core             | `rte_pktmbuf_read` touches payload across cache-line boundaries, incurring extra L1 and occasional LLC misses. |
 
 *Predicted secondary effects*
@@ -271,6 +270,7 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 * LLC-miss percentage rises modestly; most misses are served after the first line fill.  
 * The perf sample set should validate the time-domain analysis by showing higher retired instructions and cache-miss stalls exclusively on the userspace threads.
 
+<br>
 
 ## Test Scenario: Two Queues, Dropping TCP, UDP, or Both Packet Types
 
