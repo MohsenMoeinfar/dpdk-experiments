@@ -180,10 +180,6 @@ tcpreplay -i tap0 --loop=1000 ./Capture.pcap
 ```
 <br>
 
-*The file ![Capture.pcap](Files/Capture.pcap) is available within this repository and can be used for testing purposes.*
-
-<br>
-
 ## 7. Setting Up an LTTng Trace Session
   In order to Automate the LTTng capture, create a shell script to configure the LTTng session. The script initializes the session, adds the necessary context fields, starts tracing, sleeps for a specified duration, and then stops and destroys the session.
 
