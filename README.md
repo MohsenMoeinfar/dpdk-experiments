@@ -136,6 +136,11 @@ To add a new queue, we need to perform the following actions in testpmd:
 
 <br>
 
+After the queues have been created, the output of `show config fwd` should appear as follows:
+
+![show-config-forward-after-creating-queues](Pics/show-config-forward-after-creating-queues.png)
+
+
 ## 5. Create Flow Filtering Rule in testpmd
 
 To direct specific types of traffic to designated queues, you can create a flow filtering rule in testpmd using the following command.
@@ -143,8 +148,12 @@ To direct specific types of traffic to designated queues, you can create a flow 
 ```shell
 flow create 0 ingress pattern eth / ipv4 / udp / end actions queue index 0 / end
 ```
-
 <br>
+
+If the operation completes successfully, you should observe an output similar to the following:
+
+![Flow-Rule](Pics/Flow-Rule.png)
+
 
 This command creates a rule on port 0 that:
 
@@ -163,7 +172,6 @@ After downloading the `tcpreplay-4.5.1.tar.gz` archive, compile and install it. 
 make
 sudo make install
 ```
-<br>
 
 ### Note:
  *You may need to install some build tools, such as `make` or `automake`, to successfully compile the TCPReplay project.*
@@ -178,6 +186,16 @@ After completing the installation, you can run the previously generated pcap fil
 ```shell
 tcpreplay -i tap0 --loop=1000 ./Capture.pcap 
 ```
+<br>
+
+![TCPReplay](Pics/TCPReplay.png)
+
+<br>
+
+Next, in the `testpmd` terminal window, enter the command `start`, followed by `show port stats all` to observe the packet flow on TAP interface 0.
+
+![show-port-stats-all-after-running-tcpreplay](Pics/show-port-stats-all-after-running-tcpreplay.png)
+
 <br>
 
 ## 7. Setting Up an LTTng Trace Session
@@ -364,11 +382,11 @@ Initially, only UDP packets were dropped, followed by the dropping of both TCP a
 We noticed that regardless of the flow rule, the `burst_forward` function is always called.  
 This is expected since the driver operates in poll mode — the CPU is always active, and the specified core maintains 100% utilization.
 
-![](Pics/Screenshot%20from%202025-06-03%2007-20-33-1.png)
+![Flame-Graph03](Pics/Flame-Graph03.png)
 
 If there is data to transmit, the call stack changes to:
 
-![](Pics/Screenshot%20from%202025-06-03%2007-21-53-1.png)
+![Flame-Graph04](Pics/Flame-Graph04.png)
 
 Upon analyzing the function calls, we did not observe any functions explicitly responsible for filtering or dropping packets.
 This observation appears unusual; therefore, we will conduct a more in-depth investigation.
@@ -382,12 +400,12 @@ In [`tap_flow.c`](https://github.com/DPDK/dpdk/blob/main/drivers/net/tap/tap_flo
 As a result, no user-space function is explicitly invoked, which explains why `LTTng` is unable to trace this behavior.
 
 
-![](Pics/Screenshot%20from%202025-06-03%2007-26-55-1.png)
+![Code-Review1](Pics/Code-Review1.png)
 
 The same principle applies to queue redirection for specific packet types:
 When a flow rule redirects packets to a particular queue, the necessary configuration is handled at a lower level—typically by modifying kernel-level or driver-level settings. As such, no explicit user-space function is called during the redirection process, and consequently, tools like `LTTng` are unable to capture this action.
 
-![](Pics/Screenshot%20from%202025-06-03%2007-28-00-1.png)
+![Code-Review2](Pics/Code-Review2.png)
 
 It simply modifies the socket buffer (SKB) directly, without invoking any additional function calls.
 
