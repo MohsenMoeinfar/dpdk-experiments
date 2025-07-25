@@ -99,45 +99,89 @@ The terminal output should appear as follows after executing the testpmd command
 
 ![testpmd](Pics/testpmd1.png)
 
-then with show port stats all you can see the port stats
-![showport](Pics/showport.png)
+By executing the command `show port stats all`, you will be able to view the statistics for all ports.
+
+![show-port-stats-all](Pics/show-port-stats-all.png)
 
 <br>
 
 ## 4. Create Additional RX/TX Queues
-tIn the next step, to add a new queue in TAP mode, we need to perform the following actions in testpmd: 
-first, stop all ports, then create new RX and TX queues using the code below, and finally start the ports again.
+In the following step, we will add a new queue while operating in TAP mode. However, before proceeding, it is recommended to retrieve relevant configuration details using the `show config fwd` command.
 
-![new-rx-tx](Pics/new-rx-tx.png)
+![show-config-fwd1](Pics/show-config-fwd1.png)
 
-then, after creating the second RX and TX queues, we can observe the results.
+- `Forwarding Mode: io` -> This means packets received on a port are simply transmitted out through the corresponding transmit queue of another port.
 
-![showallport](Pics/showallport.png)
+- `Ports: 2` -> Two physical or virtual ports are active.
+
+- `Cores: 1` -> One logical core (Core 5 in this case) is being used to process all forwarding tasks.
+
+- `Streams: 2` -> Two forwarding streams are configured, each representing a receive/transmit (RX/TX) path between ports.
+
+- `NUMA support: Enabled` -> The application is aware of NUMA (Non-Uniform Memory Access) node placement.
+
+- `MP Allocation Mode: native` -> Memory pools are allocated in native DPDK mode.
+
+<br>
+
+To add a new queue, we need to perform the following actions in testpmd:
+
+- Stoping all ports: `port stop all`
+
+- Creating new RX and TX queues: `port config all rxq 2` & `port config all txq 2`
+
+- Start the ports again: `port start all`
+
+![New-RX-TX-Queue](Pics/New-RX-TX-Queue.png)
 
 <br>
 
 ## 5. Create Flow Filtering Rule in testpmd
 
+To direct specific types of traffic to designated queues, you can create a flow filtering rule in testpmd using the following command.
+
 ```shell
 flow create 0 ingress pattern eth / ipv4 / udp / end actions queue index 0 / end
 ```
-note:This command installs a flow rule on port 0 that matches Ethernet + IPv4 + UDP packets and sends them to queue 0.
+
+<br>
+
+This command creates a rule on port 0 that:
+
+  - Matches any incoming UDP over IPv4 over Ethernet traffic.
+
+  - Routes the matched packets to RX queue 0.
 
 <br>
 
 ## 6. Install and Run tcpreplay
-Then, we should clone tcpreplay from the https://github.com/appneta/tcpreplay/releases/tag/v4.5.1 to use it in our project.
-After downloading tcpreplay-4.5.1.tar.gz compile and install it, we open a new terminal and run the following code in the same terminal.
+Subsequently, we need to clone tcpreplay from the [TCP-Replay](https://github.com/appneta/tcpreplay/releases/tag/v4.5.1) repository to send the traffic to one of the interfaces we've created using `testpmd`.
+After downloading the `tcpreplay-4.5.1.tar.gz` archive, compile and install it. Once the installation is complete, open a new terminal session and execute the following command within that terminal.
+
 ```shell
 ./configure --disable-tuntap
 make
 sudo make install
 ```
-after that we  can run pcapfile that before create it by below command
+<br>
+
+### Note:
+ *You may need to install some build tools, such as `make` or `automake`, to successfully compile the TCPReplay project.*
+  *You can typically install them on Ubuntu with:* <br>
+  >*`sudo apt update`* <br>
+  *`sudo apt install build-essential automake`*
+
+<br> <br>
+
+After completing the installation, you can run the previously generated pcap file using the command shown below.
 
 ```shell
-tcpreplay -i tap0 --loop=1000 ./real_traffic.pcap 
+tcpreplay -i tap0 --loop=1000 ./Capture.pcap 
 ```
+<br>
+
+*The file ![Capture.pcap](Files/Capture.pcap) is available within this repository and can be used for testing purposes.*
+
 <br>
 
 ## 7. Setting Up an LTTng Trace Session
@@ -301,7 +345,7 @@ drivers/net/tap/tap_flow.c    : software flow helpers
 
 | PMU counter      | Projected change with the flow rule active | Explanation                                                                                                    |
 | ---------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **cpu-cycles**   | Increase by ~10 – 15 %                     | Additional helper instructions execute per frame.                                                              |
+| **cpu-cycles**   | Increase by ~5 – 10 %                     | Additional helper instructions execute per frame.                                                              |
 | **instructions** | Increase by ~3 – 5 %                       | Header checks add 50 – 100 instructions per packet.                                                           |
 | **cache-misses** | Noticeable rise on the Rx core             | `rte_pktmbuf_read` touches payload across cache-line boundaries, incurring extra L1 and occasional LLC misses. |
 
@@ -317,8 +361,9 @@ drivers/net/tap/tap_flow.c    : software flow helpers
  
 ## Test Scenario: Two Queues, Dropping TCP, UDP, or Both Packet Types
 
-In this test, we examine the effect of dropping specific types of packets.  
-First, we dropped UDP packets, then both TCP and UDP packets.
+In this test, we evaluate the impact of selectively dropping certain types of packets.
+Initially, only UDP packets were dropped, followed by the dropping of both TCP and UDP packets.
+
 
 We noticed that regardless of the flow rule, the `burst_forward` function is always called.  
 This is expected since the driver operates in poll mode — the CPU is always active, and the specified core maintains 100% utilization.
@@ -329,26 +374,31 @@ If there is data to transmit, the call stack changes to:
 
 ![](Pics/Screenshot%20from%202025-06-03%2007-21-53-1.png)
 
-When analyzing the function calls, we observed no functions specifically dedicated to filtering or dropping.  
-This seems odd, so let’s dig deeper.
+Upon analyzing the function calls, we did not observe any functions explicitly responsible for filtering or dropping packets.
+This observation appears unusual; therefore, we will conduct a more in-depth investigation.
 
-**Note:** `LTTng` captures function calls, but it does not trace logic like `if` or `else` branches.
 
-Let’s inspect the DPDK source code.  
-In [`tap_flow.c`](https://github.com/DPDK/dpdk/blob/main/drivers/net/tap/tap_flow.c) (line 1065), if the flow action is set to drop, it modifies the data so the kernel drops the packet.  
-Therefore, no user-space function is invoked, and `LTTng` cannot trace it.
+**Note:** `LTTng` captures function calls; however, it does not trace internal control flow structures such as `if` or `else` branches.
+
+
+Let us examine the DPDK source code for further clarity.
+In [`tap_flow.c`](https://github.com/DPDK/dpdk/blob/main/drivers/net/tap/tap_flow.c) at line 1065, if the flow action is configured to drop, the implementation modifies the packet data in such a way that the kernel subsequently discards it.
+As a result, no user-space function is explicitly invoked, which explains why `LTTng` is unable to trace this behavior.
+
 
 ![](Pics/Screenshot%20from%202025-06-03%2007-26-55-1.png)
 
-The same applies to queue redirection for specific packet types:
+The same principle applies to queue redirection for specific packet types:
+When a flow rule redirects packets to a particular queue, the necessary configuration is handled at a lower level—typically by modifying kernel-level or driver-level settings. As such, no explicit user-space function is called during the redirection process, and consequently, tools like `LTTng` are unable to capture this action.
 
 ![](Pics/Screenshot%20from%202025-06-03%2007-28-00-1.png)
 
-It simply edits the socket buffer (SKB), with no additional function call.
+It simply modifies the socket buffer (SKB) directly, without invoking any additional function calls.
 
 <br>
  
 ## Conclusion
 
-Tracing the actual filtering logic via function calls is not possible with this setup.  
-However, we can still analyze low-level performance metrics such as cache misses or CPU cycles for further insights.
+With the current setup, tracing the actual packet filtering logic through function calls is not feasible, as the operations occur at a lower level without explicit invocation of user-space functions.
+However, it is still possible to gain valuable insights by analyzing low-level performance metrics—such as CPU cycles, cache misses, branch mispredictions, and memory access patterns.
+These metrics can help us better understand the performance characteristics and efficiency of the filtering mechanism, even in the absence of direct function call traces.
