@@ -171,7 +171,7 @@ sudo make install
   >*`sudo apt update`* <br>
   *`sudo apt install build-essential automake`*
 
-<br> <br>
+<br>
 
 After completing the installation, you can run the previously generated pcap file using the command shown below.
 
