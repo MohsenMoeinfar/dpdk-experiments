@@ -1,9 +1,9 @@
 # Dpdk-TAP-Driver
 
 
-This project is designed to analyze network performance using DPDK (testpmd), virtual TAP interfaces, and the tcpreplay tool. Below is the structured workflow for implementation and analysis:
+This project is intended to evaluate network performance by utilizing DPDK (testpmd), virtual TAP interfaces, and the tcpreplay utility. The structured workflow for implementation and analysis is outlined below:
 
-## 1. Installing and Building DPDK from Source with Function Tracing Support
+## 1. Installing and Building DPDK with Function Tracing Support
 1. **Download the Latest DPDK Version**
   
     Retrieve the latest release from the [official DPDK website](https://core.dpdk.org/download/)
@@ -44,7 +44,7 @@ This project is designed to analyze network performance using DPDK (testpmd), vi
 
   <br>
 
-## 2. Configure hugepage and mount 1GB pagesize
+## 2. Configure hugepages and mount 1GB pagesize
 
 ```shell
 echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
@@ -52,28 +52,50 @@ mkdir /mnt/huge
 mount -t hugetlbfs pagesize=1GB /mnt/huge
 ```
 
+Alternatively, the following method can be used:
+
+```shell
+sudo sysctl -w vm.nr_hugepages=1024
+mount -t hugetlbfs none /dev/hugepages
+```
+
+
 <br>
 
 ## 3. Create two TAP interfaces for DPDK's TAP Poll Mode Driver (PMD)
 
-In the directory cd dpdk-<version>/build, run testpmd as follows:
+Within the dpdk-<version>/build directory, execute the testpmd application using the following command:
 
 ```shell
- sudo LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so ./app/dpdk-testpmd -l 0-1 --proc-type=primary --file-prefix=pmd1 --vdev=net_memif,role=server -- -i
+sudo LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so.1 ./app/dpdk-testpmd -l 0-1 -n 2   --vdev=net_tap0,iface=tap0   --vdev=net_tap1,iface=tap1   --   -i
  ```
- What this does:
+ **Functionality:**
 
-1- Creates net_tap0 and net_tap1 virtual devices
++ Creates net_tap0 and net_tap1 virtual devices
 
-2- Assigns 2 CPU cores (-l 0-1)
++ Assigns 2 CPU cores (-l 0-1)
 
-3- Starts in interactive mode (-i)
++ Starts in interactive mode (-i)
+
+<br>
 
 > LD_PRELOAD=/usr/lib/x86_64-linux-gnu/liblttng-ust-cyg-profile.so forces the DPDK application to load LTTng's function tracing library first, enabling detailed profiling of function calls for performance analysis. This allows tracking exact timing and frequency of every function call in DPDK (like packet processing functions) to identify bottlenecks.
 
 <br>
 
-Here is what the terminal should look like:
+**Note:**
+
+Depending on your kernel version, the exact `liblttng-ust-cyg-profile.so` file may not be present, even if the `liblttng-ust-dev` package has been installed. To determine the specific version available on your system, you can use the following command:
+```shel
+ls /usr/lib/x86_64-linux-gnu/ | grep liblttng-ust-cyg-profile.so
+```
+For example, the output on one system may appear as follows:
+
+![liblttng-ust-cyg-profile.so](Pics/liblttng-ust-cyg-profile.so.png)
+
+<br>
+
+The terminal output should appear as follows after executing the testpmd command:
 
 ![testpmd](Pics/testpmd1.png)
 
